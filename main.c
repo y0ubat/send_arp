@@ -98,7 +98,7 @@ void send_packet(char *interface,char *my_mac,char *sip,char *dip)
         return(2);
     }
 
-    res = pcap_sendpacket(pc, ((u_char*)&p), sizeof(arp_packet));
+    res = pcap_sendpacket(handle, ((u_char*)&all_packet), sizeof(arp_packet));
 
     if(res != 0)
     {
