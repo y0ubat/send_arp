@@ -2,5 +2,5 @@ TEMPLATE = app
 CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
-CONFIG += -lpcap
+LIBS += -lpcap
 SOURCES += main.c

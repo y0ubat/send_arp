@@ -8,13 +8,16 @@
 #include <net/if.h>
 #include <unistd.h>
 
+
+char all_packet[255] = {0};
+
 #pragma pack(push,1)
 
 
 struct packet_eth
 {
-    u_int8_t daddr[6];
-    u_int8_t saddr[6];
+    u_int8_t dmac[6];
+    u_int8_t smac[6];
     u_int16_t type;
 };
 
@@ -28,7 +31,6 @@ struct arp_packet {
     u_int8_t  spa[4];
     u_int8_t  tha[6];
     u_int8_t  tpa[4];
-    u_int8_t  trail[18];
 };
 
 #pragma pack(pop)
@@ -58,24 +60,72 @@ char *get_mac(char *test)
 
 }
 
+void send_packet(char *interface,char *my_mac,char *sip,char *dip)
+{
+
+    pcap_t *handle;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    struct pcap_pkthdr header;
+    const u_char *packet;
+    struct packet_eth *eth;
+    struct arp_packet *arp;
+    int res;
+
+    for(int i=0;i<6;i++)
+        eth->dmac[i] = 0xff;
+
+    memcpy(eth->smac,my_mac,6);
+    memcpy(eth->type,ntohs(0x0806),2);
+
+    memcpy(all_packet,eth,sizeof(eth));
+
+    all_packet += sizeof(eth);
+
+    memcpy(arp->htype,ntohs(0x0001),1);
+    memcpy(arp->ptype,ntohs(0x0800),2);
+    memcpy(arp->hlen,"\x06",1);
+    memcpy(arp->plen,"\x04",1);
+    memcpy(arp->oper,ntohs(0x0001),2);
+    memcpy(arp->sha,my_mac,6);
+    memcpy(arp->spa,ntohs(sip),4);
+    memcpy(arp->tha,eth->dmac,6);
+    memcpy(arp->tpa,ntohs(dip),4);
+
+    memcpy(all_packet,arp,sizeof(arp));
+
+    handle = pcap_open_live(argv[1], BUFSIZ, 1, 1000, errbuf);
+    if (handle == NULL) {
+        return(2);
+    }
+
+    res = pcap_sendpacket(pc, ((u_char*)&p), sizeof(arp_packet));
+
+    if(res != 0)
+    {
+            printf("Error sending packet: %s", pcap_geterr(pc));
+            exit(1);
+    }
+
+
+
+
+}
+
+
 int main(int argc, char *argv[])
 {
-    pcap_t *handle;			/* Session handle */
-    char *dev;			/* The device to sniff on */
-    char errbuf[PCAP_ERRBUF_SIZE];	/* Error string */
-    struct bpf_program fp;		/* The compiled filter */
-    bpf_u_int32 mask;		/* Our netmask */
-    bpf_u_int32 net;		/* Our IP */
-    struct pcap_pkthdr header;	/* The header that pcap gives us */
-    const u_char *packet;		/* The actual packet */
+
     struct arp_packet;
     unsigned char *my_mac = {0};
 
     if(argc != 4)
-        printf("[Using] ./program interface dip sip\n");
+        printf("[Using] ./program [interface] [dip] [sip]\n");
 
     my_mac = get_mac(argv[1]);
     printf("My_Mac : %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n" , my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+
+
+
 
     return(0);
 }
