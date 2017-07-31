@@ -23,6 +23,7 @@ struct packet_eth
     u_int16_t type;
 };
 
+
 struct packet_arp {
     u_int16_t htype;
     u_int16_t ptype;
@@ -36,6 +37,9 @@ struct packet_arp {
 };
 
 #pragma pack(pop)
+
+
+
 
 char *get_mac(char *test)
 {
@@ -62,46 +66,72 @@ char *get_mac(char *test)
 
 }
 
-void send_packet(char *interface,char *my_mac,char *sip,char *dip)
+void send_packet(char *interface,char *sip,char *dip)
 {
 
-    pcap_t *handle;
-    char errbuf[PCAP_ERRBUF_SIZE];
-    struct pcap_pkthdr header;
-    const u_char *packet;
-    struct packet_eth *eth;
-    struct packet_arp *arp;
-    int res;
+    struct packet_eth eth;
+    struct packet_arp arp;
+    int tmp = 0;
 
     for(int i=0;i<6;i++)
-        eth->dmac[i] = 0xff;
+        eth.dmac[i] = 0xff;
 
-    memcpy(eth->smac,my_mac,6);
-    memcpy(eth->type,ntohs(0x0806),2);
+    memcpy(eth.smac,get_mac("ens33"),6);
 
-    memcpy(all_packet,eth,sizeof(struct packet_eth *));
+    eth.type = ntohs(0x0806);
+
+    memcpy(all_packet,&eth,14);
+
+    arp.htype = ntohs(0x0001);
+    arp.ptype = ntohs(0x0800);
+    arp.hlen = "\x06";
+    arp.plen = "\x04";
+    arp.oper = ntohs(0x0001);
+
+    memcpy(arp.sha,get_mac("ens33"),6);
+
+    tmp = ntohsl(sip);
+
+    memcpy(arp.spa,sip,4);
+    tmp =0;
+    memcpy(arp.tha,&eth.dmac,6);
+    tmp = ntohl(dip);
+    memcpy(arp.tpa,dip,4);
+
+    memcpy(all_packet+14,&arp,28);
+}
+
+
+int main(int argc, char *argv[])
+{
+
+    unsigned char *my_mac = {0};
+    struct in_addr addr,addr2;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *handle;
+
+    int res;
+
+    /*  if(argc != 4)
+    {
+        printf("[Using] ./program [interface] [sip] [dip]\n");
+        exit(1);
+    }*/
 
 
 
-    memcpy(arp->htype,ntohs(0x0001),1);
-    memcpy(arp->ptype,ntohs(0x0800),2);
-    memcpy(arp->hlen,"\x06",1);
-    memcpy(arp->plen,"\x04",1);
-    memcpy(arp->oper,ntohs(0x0001),2);
-    memcpy(arp->sha,my_mac,6);
-    memcpy(arp->spa,ntohs(sip),4);
-    memcpy(arp->tha,eth->dmac,6);
-    memcpy(arp->tpa,ntohs(dip),4);
+  //  inet_pton(AF_INET,"192.168.1.145",&addr.s_addr);
+    //inet_pton(AF_INET,"192.168.1.1",&addr2.s_addr);
+    send_packet("ens33",inet_addr("192.168.1.145"),inet_addr("192.168.1.1"));
 
-    memcpy(all_packet+14,arp,sizeof(struct packet_arp *));
-
-    handle = pcap_open_live(interface, BUFSIZ, 1, 1000, errbuf);
+    handle = pcap_open_live("ens33", BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
-        printf("Couldn't open device %s: %s", interface, errbuf);
+        //     printf("Couldn't open device %s: %s", interface, errbuf);
         exit(1);
     }
 
-    res = pcap_sendpacket(handle, ((u_char*)&all_packet), sizeof(struct packet_arp *));
+    res = pcap_sendpacket(handle, ((u_char*)&all_packet), (sizeof(struct packet_arp)+sizeof(struct packet_eth)));
+    printf("%d\n",res);
 
     if(res != 0)
     {
@@ -112,25 +142,6 @@ void send_packet(char *interface,char *my_mac,char *sip,char *dip)
     printf("complete\n");
 
     pcap_close(handle);
-
-
-
-
-}
-
-
-int main(int argc, char *argv[])
-{
-
-    unsigned char *my_mac = {0};
-
-    if(argc != 4)
-        printf("[Using] ./program [interface] [dip] [sip]\n");
-
-    my_mac = get_mac(argv[1]);
-    printf("My_Mac : %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n" , my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
-
-
 
 
     return(0);
