@@ -108,11 +108,13 @@ int main(int argc, char *argv[])
     unsigned char *my_mac = {0};
     struct in_addr addr,addr2;
     char errbuf[PCAP_ERRBUF_SIZE];
+    struct pcap_pkthdr header;
+    const u_char *packet;
     pcap_t *handle;
 
     int res;
 
-      if(argc != 4)
+    if(argc != 4)
     {
         printf("[Using] ./program [interface] [sip] [dip]\n");
         exit(1);
@@ -130,7 +132,7 @@ int main(int argc, char *argv[])
     }
 
     res = pcap_sendpacket(handle, ((u_char*)&all_packet), (sizeof(struct packet_arp)+sizeof(struct packet_eth)));
-    printf("%d\n",res);
+
 
     if(res != 0)
     {
@@ -138,8 +140,24 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    printf("complete\n");
+    while(1)
+    {
+        res = pcap_next_ex(handle,&header,&packet);
 
+        if(!res)
+            continue;
+
+        if(packet[21] == 2)
+        {
+            printf("victim mac : %.02x:%.02x:%.02x:%.02x:%.02x:%.02x\n",packet[22],packet[23],packet[24],packet[25],packet[26],packet[27]);
+            break;
+        }
+
+
+
+
+    }
+    printf("complete\n");
     pcap_close(handle);
 
 
