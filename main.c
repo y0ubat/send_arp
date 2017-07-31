@@ -1,5 +1,6 @@
 #include <pcap.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <unistd.h>
+
 
 
 char all_packet[255] = {0};
@@ -21,7 +23,7 @@ struct packet_eth
     u_int16_t type;
 };
 
-struct arp_packet {
+struct packet_arp {
     u_int16_t htype;
     u_int16_t ptype;
     u_int8_t  hlen;
@@ -68,7 +70,7 @@ void send_packet(char *interface,char *my_mac,char *sip,char *dip)
     struct pcap_pkthdr header;
     const u_char *packet;
     struct packet_eth *eth;
-    struct arp_packet *arp;
+    struct packet_arp *arp;
     int res;
 
     for(int i=0;i<6;i++)
@@ -77,9 +79,9 @@ void send_packet(char *interface,char *my_mac,char *sip,char *dip)
     memcpy(eth->smac,my_mac,6);
     memcpy(eth->type,ntohs(0x0806),2);
 
-    memcpy(all_packet,eth,sizeof(eth));
+    memcpy(all_packet,eth,sizeof(struct packet_eth *));
 
-    all_packet += sizeof(eth);
+
 
     memcpy(arp->htype,ntohs(0x0001),1);
     memcpy(arp->ptype,ntohs(0x0800),2);
@@ -91,20 +93,25 @@ void send_packet(char *interface,char *my_mac,char *sip,char *dip)
     memcpy(arp->tha,eth->dmac,6);
     memcpy(arp->tpa,ntohs(dip),4);
 
-    memcpy(all_packet,arp,sizeof(arp));
+    memcpy(all_packet+14,arp,sizeof(struct packet_arp *));
 
-    handle = pcap_open_live(argv[1], BUFSIZ, 1, 1000, errbuf);
+    handle = pcap_open_live(interface, BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
-        return(2);
+        printf("Couldn't open device %s: %s", interface, errbuf);
+        exit(1);
     }
 
-    res = pcap_sendpacket(handle, ((u_char*)&all_packet), sizeof(arp_packet));
+    res = pcap_sendpacket(handle, ((u_char*)&all_packet), sizeof(struct packet_arp *));
 
     if(res != 0)
     {
-            printf("Error sending packet: %s", pcap_geterr(pc));
-            exit(1);
+        printf("Error sending packet: %s", pcap_geterr(handle));
+        exit(1);
     }
+
+    printf("complete\n");
+
+    pcap_close(handle);
 
 
 
@@ -115,7 +122,6 @@ void send_packet(char *interface,char *my_mac,char *sip,char *dip)
 int main(int argc, char *argv[])
 {
 
-    struct arp_packet;
     unsigned char *my_mac = {0};
 
     if(argc != 4)
